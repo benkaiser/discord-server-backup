@@ -1,0 +1,22 @@
+{
+  "name": "discord-server-backup",
+  "version": "1.0.0",
+  "description": "",
+  "main": "src/index.ts",
+  "scripts": {
+    "start": "ts-node src/index.ts",
+    "watch": "ts-node-dev --respawn src/index.ts",
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "author": "Benjamin Kaiser",
+  "license": "MIT",
+  "dependencies": {
+    "@types/node": "^18.16.0",
+    "discord.js": "^14.9.0",
+    "dotenv": "^16.0.3",
+    "sqlite3": "^5.1.6",
+    "ts-node": "^10.9.1",
+    "ts-node-dev": "^2.0.0",
+    "typescript": "^5.0.4"
+  }
+}
