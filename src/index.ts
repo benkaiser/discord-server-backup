@@ -34,7 +34,7 @@ db.run(`
 
 const client = new Client({ intents: [GatewayIntentBits.Guilds, GatewayIntentBits.GuildMessages, GatewayIntentBits.MessageContent] });
 
-client.login(process.env.DISCORD_BOT_CLIENT_ID);
+client.login(process.env.DISCORD_BOT_TOKEN);
 
 client.on('ready', () => {
   console.log(`Discord connected!`);

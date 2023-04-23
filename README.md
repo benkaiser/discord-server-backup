@@ -11,7 +11,7 @@ To get started with this project, follow these steps:
 3. Create a Discord bot and add it to your server following [these instructions](https://discordjs.guide/preparations/setting-up-a-bot-application.html).
 4. Create a `.env` file at the root of the project and add your Discord bot's client ID as shown below:
    ```
-   DISCORD_BOT_CLIENT_ID=your-discord-bot-client-id
+   DISCORD_BOT_TOKEN=your-discord-bot-client-id
    ```
 5. Run the project using `npm start`
 
