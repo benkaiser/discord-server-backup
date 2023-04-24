@@ -26,6 +26,7 @@ db.run(`CREATE TABLE IF NOT EXISTS messages (
   author_id TEXT,
   channel_id TEXT,
   content TEXT,
+  attachments TEXT,
   created_at INTEGER
 )`);
 
@@ -137,15 +138,16 @@ function backupMessages(messages: Message[]) {
     }
 
     const insertQuery = `
-      INSERT OR IGNORE INTO messages (message_id, channel_id, author_id, created_at, content)
-      VALUES (?, ?, ?, ?, ?)
+      INSERT OR IGNORE INTO messages (message_id, channel_id, author_id, created_at, content, attachments)
+      VALUES (?, ?, ?, ?, ?, ?)
     `;
     const insertParams = [
       message.id,
       message.channel.id,
       message.author.id,
       message.createdTimestamp,
-      message.content
+      message.content,
+      JSON.stringify([...message.attachments.values()])
     ];
     db.run(insertQuery, insertParams, err => {
       if (err) {
