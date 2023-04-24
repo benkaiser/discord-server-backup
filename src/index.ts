@@ -5,6 +5,21 @@ import { verbose } from 'sqlite3';
 const sqlite3 = verbose();
 const db = new sqlite3.Database('discord.db');
 
+interface IChannel {
+  channel_id: string;
+  channel_name: string;
+  guild_id: string;
+  last_message_id?: string;
+}
+
+interface IMessage {
+  message_id: string;
+  author_id: string;
+  channel_id: string;
+  content: string;
+  created_at: number;
+}
+
 // Ensure that the messages table exists
 db.run(`CREATE TABLE IF NOT EXISTS messages (
   message_id TEXT PRIMARY KEY,
@@ -20,6 +35,7 @@ db.run(`
     channel_id TEXT PRIMARY KEY,
     channel_name TEXT NOT NULL,
     guild_id TEXT NOT NULL,
+    last_message_id TEXT,
     FOREIGN KEY (guild_id) REFERENCES guilds(guild_id)
   )
 `);
@@ -41,8 +57,8 @@ client.on('ready', () => {
 });
 
 client.on('messageCreate', async (message: Message) => {
+  console.log(message);
   if (message.content === '!backup') {
-    // Get the guild from the message
     const guild = message.guild;
     if (!guild) {
       message.channel.send("This command must be run in a guild.");
@@ -52,34 +68,39 @@ client.on('messageCreate', async (message: Message) => {
 
     let messageCount = 0;
     for (const channel of channels.values()) {
-      const messages = await fetchMessages(channel, 100);
+      const lastMessageId = await getLastMessageId(channel.id);
+      const messages = await fetchMessages(channel, undefined, lastMessageId);
       backupMessages(messages);
       messageCount += messages.length;
     }
 
     if (messageCount > 0) {
-      message.channel.send(`Backed up ${messageCount} messages across ${channels.size} channels.`);
+      await updateLastMessageId();
+      message.channel.send(`Backed up ${messageCount} more messages when scanning ${channels.size} channels.`);
     } else {
       message.channel.send("No messages found in any channels.");
     }
   }
 });
 
-async function fetchMessages(channel: TextChannel, limit: number) {
+async function fetchMessages(channel: TextChannel, limit: number | undefined, after?: string) {
   const messages: Message[] = [];
-  let lastId;
+  let lastId: string | undefined;
 
   while (true) {
     const options: FetchMessagesOptions = { limit: 100 };
     if (lastId) {
       options.before = lastId;
     }
+    if (after) {
+      options.after = after;
+    }
 
     const fetchedMessages = await channel.messages.fetch(options);
     const fetchedMessagesArray: Message[] = [...fetchedMessages.values()];
     messages.push(...fetchedMessagesArray);
 
-    if (fetchedMessagesArray.length < 100 || messages.length >= limit) {
+    if (fetchedMessagesArray.length < 100 || (limit !== undefined && messages.length >= limit)) {
       break;
     }
 
@@ -133,7 +154,6 @@ function backupMessages(messages: Message[]) {
     });
   }
 
-
   // insert channel data into database
   const channelInsertQuery = `
     INSERT OR IGNORE INTO channels (channel_id, channel_name, guild_id)
@@ -168,4 +188,59 @@ function backupMessages(messages: Message[]) {
       }
     });
   }
+}
+
+function updateLastMessageId(): Promise<void> {
+  return new Promise((resolve, reject) => {
+    db.all(
+      `
+      SELECT
+        channels.channel_id,
+        MAX(messages.created_at) AS max_timestamp,
+        messages.message_id
+      FROM channels
+      LEFT JOIN messages
+        ON channels.channel_id = messages.channel_id
+      GROUP BY channels.channel_id
+      `,
+      (err, rows: Array<IChannel & IMessage & { max_timestamp: number }>) => {
+        if (err) {
+          reject(err);
+        } else {
+          rows.forEach(row => {
+            const { channel_id, message_id } = row;
+            db.run(
+              `
+              UPDATE channels
+              SET last_message_id = ?
+              WHERE channel_id = ?
+              `,
+              [message_id, channel_id],
+              err => {
+                if (err) {
+                  reject(err);
+                }
+              }
+            );
+          });
+          resolve();
+        }
+      }
+    );
+  });
+}
+
+
+function getLastMessageId(channelId: string): Promise<string | undefined> {
+  return new Promise((resolve, reject) => {
+    db.get('SELECT last_message_id FROM channels WHERE channel_id = ?', [channelId], (err, row: IChannel) => {
+      if (err) {
+        reject(err);
+      } else if (!row) {
+        resolve(undefined); // channel not found
+      } else {
+        resolve(row.last_message_id);
+      }
+    });
+  });
 }
